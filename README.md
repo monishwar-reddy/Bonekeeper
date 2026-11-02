@@ -52,7 +52,7 @@ Every message follows the same flow:
 5. The adapter performs the action and an audit record is written.
 6. Repeat-offender tracking can warn or mute persistent offenders.
 
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full data flow,
+See [bonekeeper_architecture/ARCHITECTURE.md](bonekeeper_architecture/ARCHITECTURE.md) for the full data flow,
 persistence model, API routes, and deployment details.
 
 ## Local development
@@ -149,5 +149,5 @@ Set secrets in Netlify’s environment-variable settings rather than in
 
 ## Project documentation
 
-- [Architecture](docs/ARCHITECTURE.md
+- [Architecture](bonekeeper_architecture/ARCHITECTURE.md)
 - [MIT License](LICENSE)

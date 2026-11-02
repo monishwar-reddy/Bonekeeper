@@ -16,7 +16,7 @@ inclusion: always
 - `packages/adapter-simulated` — 7-bot simulated chat adapter
 - `packages/dashboard` — Next.js app with vendored core at `src/vendor/`
 - `templates/adapter-template` — stub for new adapters
-- `docs/` — developer guides
+- `bonekeeper_architecture/` — architecture and developer guides
 
 ## Key constraints
 - All workspace package imports in the dashboard MUST use `@/vendor/core/` or `@/vendor/adapter-simulated/` paths, NOT `@bonekeeper/core` — Netlify's bundler cannot resolve workspace symlinks at runtime.

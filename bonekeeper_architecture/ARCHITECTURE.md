@@ -217,7 +217,8 @@ Off-topic and unnecessary are never auto-deleted in Lenient mode.
 
 ## Adding a new platform
 
-See `docs/ADAPTER.md`. Summary:
+See the adapter implementation under `packages/adapter-telegram` and
+`packages/adapter-discord`. Summary:
 1. Copy `templates/adapter-template/index.ts`
 2. Implement `normaliseMessage()` and the 4 adapter methods
 3. Wire to a webhook/event listener and call `pipeline.moderate()`
