@@ -13,7 +13,6 @@ packages/*/dist
 
 # Local agent/editor metadata
 .agents
-.kiro
 
 # Credentials, private keys, and local deployment state
 *.pem

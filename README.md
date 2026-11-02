@@ -34,7 +34,14 @@ packages/
 ├── adapter-telegram/     Telegram integration adapter
 ├── adapter-discord/      Discord adapter foundation
 └── dashboard/            Next.js web app, API routes, and admin portal
+
+apps/
+├── web-demo/             Application 1: browser chat and admin portal
+└── telegram/             Application 2: Telegram moderation webhook
 ```
+
+The two application folders document the independent app boundaries while
+their implementations remain in the shared workspace packages.
 
 Every message follows the same flow:
 
