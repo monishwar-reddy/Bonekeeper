@@ -81,4 +81,29 @@ describe('checkCheapRules', () => {
     const result = checkCheapRules(message, mockConfig);
     expect(result.isSpam).toBe(false);
   });
+
+  it('should remove ordinary links from established members', () => {
+    const message = createMessage({
+      text: 'Here is the resource: https://example.com/article',
+      links: ['https://example.com/article']
+    });
+    const result = checkCheapRules(message, mockConfig);
+    expect(result.isSpam).toBe(true);
+    expect(result.reason).toContain('Link from non-admin');
+  });
+
+  it('should catch bare scam domains emitted without a URL scheme', () => {
+    const message = createMessage({
+      text: '1000x your investment in 24h. Join moonshot-guaranteed.xyz'
+    });
+    const result = checkCheapRules(message, mockConfig);
+    expect(result.isSpam).toBe(true);
+    expect(result.reason).toContain('Suspicious link');
+  });
+
+  it('should not flag a short benign greeting', () => {
+    const message = createMessage({ text: 'hi' });
+    const result = checkCheapRules(message, mockConfig);
+    expect(result.isSpam).toBe(false);
+  });
 });

@@ -34,13 +34,13 @@ export async function POST(req: NextRequest) {
 
   const msg = { id:uuidv4(), platform:'simulated', groupId:'halloween-dev-club',
     sender:{ id:persona.id, name:persona.name, role:'member' as const, joinedAt:new Date(Date.now()-3_600_000), isBot:true, botKind:persona.kind, warnings:existing?.warnings||0 },
-    text, links:text.match(/https?:\/\/[^\s]+/g)||[], isForwarded:false, timestamp:new Date() };
+    text, links:text.match(/https?:\/\/[^\s]+|(?:^|\s)(?:[a-z0-9-]+\.)+(?:com|org|net|io|xyz|tk|ml|ga|cf|click|top|work|zip)\b/gi)?.map(link => link.trim())||[], isForwarded:false, timestamp:new Date() };
 
-  await upsertUser({ id:persona.id, name:persona.name, role:'bot', botKind:persona.kind, color:persona.color, warnings:existing?.warnings||0, mutedUntil:existing?.mutedUntil });
   const chatMsg: ChatMessage = { ...msg, status:'ok' };
-  await addChatMessage(chatMsg);
   const action = await moderateMessage(msg);
-  if (action.type === 'delete') await updateMessageStatus(msg.id, 'deleted');
-  else if (action.type === 'quarantine') await updateMessageStatus(msg.id, 'held');
+  if (action.type === 'allow' || action.type === 'warn') {
+    await upsertUser({ id:persona.id, name:persona.name, role:'bot', botKind:persona.kind, color:persona.color, warnings:existing?.warnings||0, mutedUntil:existing?.mutedUntil });
+    await addChatMessage(chatMsg);
+  }
   return NextResponse.json({ id:msg.id, action:action.type, persona:persona.id });
 }

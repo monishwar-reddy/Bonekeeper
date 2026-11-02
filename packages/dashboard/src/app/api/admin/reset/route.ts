@@ -1,21 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/auth';
+import { resetState } from '@/lib/store';
 
 export const dynamic = 'force-dynamic';
+
+// Module-level reset flag — Next.js reuses the module between requests
+let _resetFlag = false;
 
 export async function POST(req: NextRequest) {
   if (!requireAdmin(req)) return NextResponse.json({ error: 'Admins only' }, { status: 403 });
 
-  if (process.env.NETLIFY || process.env.NETLIFY_BLOBS_CONTEXT) {
-    try {
-      const { getStore } = await import('@netlify/blobs');
-      const store = getStore('bonekeeper');
-      await store.delete('state');
-    } catch { /* ignore */ }
-  } else {
-    // Local: reset module-level memory
-    const store = await import('@/lib/store');
-    // Trigger a fresh seed by deleting the local cache — we just re-import
+  try {
+    await resetState();
+  } catch (error) {
+    console.error('[admin/reset] reset failed:', error);
+    return NextResponse.json({ error: 'Unable to reset this chat session' }, { status: 500 });
   }
 
   return NextResponse.json({ ok: true });

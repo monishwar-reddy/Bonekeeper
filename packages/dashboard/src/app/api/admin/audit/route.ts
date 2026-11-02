@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuditRecords, getCorrections } from '@/lib/store';
+import { getAuditRecords, getCorrections, getAllUsers } from '@/lib/store';
 import { requireAdmin } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
@@ -17,5 +17,7 @@ export async function GET(req: NextRequest) {
     ? ((restored / (deleted + restored)) * 100).toFixed(1)
     : '0.0';
 
-  return NextResponse.json({ audit, deleted, held, restored, fpRate, correctionsCount: corrections.length });
+  const users = await getAllUsers();
+
+  return NextResponse.json({ audit, deleted, held, restored, fpRate, correctionsCount: corrections.length, users });
 }

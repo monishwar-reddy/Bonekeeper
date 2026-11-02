@@ -9,6 +9,9 @@ export function makeDecision(
   classification: ClassificationResult,
   strictness: StrictnessLevel
 ): ModerationAction {
+  if (classification.category === 'fine') {
+    return { type: 'allow', reason: classification.reason };
+  }
   const thresholds = getThresholds(strictness, classification.category);
 
   // Special handling for off_topic and unnecessary in lenient mode

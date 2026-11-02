@@ -1,5 +1,6 @@
 import { ClassificationResult, ModerationAction, StrictnessLevel, ModerationCategory } from './types';
 export function makeDecision(c: ClassificationResult, s: StrictnessLevel): ModerationAction {
+  if (c.category === 'fine') return { type: 'allow', reason: c.reason };
   const hi = c.category === 'scam';
   let del: number, q: number;
   if (s === 'strict')   { del = hi ? 0.70 : 0.80; q = 0.50; }

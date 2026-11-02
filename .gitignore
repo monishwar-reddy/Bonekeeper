@@ -1,9 +1,25 @@
 .env
-.env.local
-.env*.local
+.env.*
+!.env.example
+!.env.*.example
 node_modules
 dist
 .next
 .netlify
 *.tsbuildinfo
 packages/*/dist
+.turbo
+**/.turbo
+
+# Local agent/editor metadata
+.agents
+.kiro
+
+# Credentials, private keys, and local deployment state
+*.pem
+*.key
+*.p12
+*.pfx
+*credentials*
+*secrets*
+*.secret

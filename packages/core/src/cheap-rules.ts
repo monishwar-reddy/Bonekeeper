@@ -7,6 +7,8 @@ const BLOCKLISTED_DOMAINS = [
 
 const MESSAGE_HISTORY = new Map<string, Array<{ text: string; timestamp: Date }>>();
 const FLOOD_HISTORY = new Map<string, number[]>();
+const SUSPICIOUS_DOMAINS = /\.(xyz|tk|ml|ga|cf|click|top|work|zip)(?:[/:?#]|$)/i;
+const SCAM_LANGUAGE = /\b(?:airdrop|double your|guaranteed|send\s+(?:eth|btc|crypto)|free crypto|investment|signal group|900%\s*apy)\b/i;
 
 export interface CheapRuleResult {
   isSpam: boolean;
@@ -14,10 +16,21 @@ export interface CheapRuleResult {
 }
 
 export function checkCheapRules(message: Message, config: GroupConfig): CheapRuleResult {
+  const links = [...message.links];
+  const textLinks = message.text.match(/(?:https?:\/\/|www\.)[^\s]+|(?:^|\s)(?:[a-z0-9-]+\.)+(?:xyz|tk|ml|ga|cf|click|top|work|zip)\b/gi) || [];
+  for (const link of textLinks) if (!links.includes(link.trim())) links.push(link.trim());
+  const isNewMember = message.timestamp.getTime() - message.sender.joinedAt.getTime() < 10 * 60 * 1000;
+  if (SUSPICIOUS_DOMAINS.test(message.text) && SCAM_LANGUAGE.test(message.text)) {
+    return { isSpam: true, reason: 'Suspicious link and scam language detected' };
+  }
+  if (message.text.trim().length <= 20 && links.length === 0 && !message.isForwarded) {
+    return { isSpam: false };
+  }
+
   // Check for blocklisted domains or URL shorteners
-  for (const link of message.links) {
+  for (const link of links) {
     try {
-      const domain = new URL(link).hostname.toLowerCase();
+      const domain = new URL(link.startsWith('http') ? link : `https://${link}`).hostname.toLowerCase();
       if (BLOCKLISTED_DOMAINS.some(blocked => domain.includes(blocked))) {
         return { isSpam: true, reason: 'Blocklisted domain or URL shortener detected' };
       }
@@ -25,8 +38,8 @@ export function checkCheapRules(message: Message, config: GroupConfig): CheapRul
       // Check allowlist
       if (!config.allowlist.domains.some(allowed => domain.includes(allowed.toLowerCase()))) {
         // If deleteLinksFromNonAdmins is enabled and user is not admin
-        if (config.deleteLinksFromNonAdmins && message.sender.role === 'member') {
-          return { isSpam: true, reason: 'Link from non-admin user' };
+        if (message.sender.role === 'member') {
+          return { isSpam: true, reason: isNewMember ? 'New member (< 10 min) posting links' : 'Link from non-admin user' };
         }
       }
     } catch {
@@ -76,9 +89,7 @@ export function checkCheapRules(message: Message, config: GroupConfig): CheapRul
   }
 
   // Check for new member posting links (joined < 10 min ago)
-  const tenMinutesInMs = 10 * 60 * 1000;
-  const accountAge = message.timestamp.getTime() - message.sender.joinedAt.getTime();
-  if (accountAge < tenMinutesInMs && message.links.length > 0) {
+  if (isNewMember && links.length > 0) {
     return { isSpam: true, reason: 'New member (< 10 min) posting links' };
   }
 

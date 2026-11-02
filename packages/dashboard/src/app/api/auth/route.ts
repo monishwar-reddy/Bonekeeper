@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sign } from '@/lib/auth';
+import { v4 as uuidv4 } from 'uuid';
 
 const ADMIN_PIN = process.env.ADMIN_PIN || '1234';
 
@@ -24,6 +25,7 @@ export async function POST(req: NextRequest) {
 
   const cookieRole = role === 'admin' ? 'admin' : 'member';
   const signed = sign(cookieRole);
+  const sessionId = req.cookies.get('bk_session')?.value || uuidv4();
 
   const res = NextResponse.json({ ok: true, role: cookieRole });
   // httpOnly signed cookie for server-side auth checks
@@ -41,6 +43,13 @@ export async function POST(req: NextRequest) {
     path: '/',
     sameSite: 'lax',
   });
+  res.cookies.set('bk_session', sessionId, {
+    httpOnly: true,
+    maxAge: 60 * 60 * 24,
+    path: '/',
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+  });
   return res;
 }
 
@@ -48,5 +57,6 @@ export async function DELETE() {
   const res = NextResponse.json({ ok: true });
   res.cookies.delete('bk_role');
   res.cookies.delete('bk_role_display');
+  res.cookies.delete('bk_session');
   return res;
 }

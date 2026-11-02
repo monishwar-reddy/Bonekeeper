@@ -2,9 +2,9 @@
 package = "@netlify/plugin-nextjs"
 
 [build]
-  command   = "npm run build"
+  base      = "."
+  command   = "npx turbo run build --force"
   publish   = "packages/dashboard/.next"
 
 [build.environment]
   NODE_VERSION = "20"
-

@@ -6,7 +6,6 @@ import {
   setLastHumanMessage,
   upsertUser,
   getUser,
-  updateMessageStatus,
   ChatMessage,
 } from '@/lib/store';
 import { moderateMessage } from '@/lib/moderator';
@@ -31,30 +30,31 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
-  if (!checkSendRate(ip)) return NextResponse.json({ error: 'Rate limit' }, { status: 429 });
+  try {
+    const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+    if (!checkSendRate(ip)) return NextResponse.json({ error: 'Rate limit' }, { status: 429 });
 
-  const { text, role = 'member' } = await req.json() as { text: string; role: string };
-  if (!text?.trim()) return NextResponse.json({ error: 'empty' }, { status: 400 });
+    const { text, role = 'member' } = await req.json() as { text: string; role: string };
+    if (!text?.trim()) return NextResponse.json({ error: 'empty' }, { status: 400 });
 
-  const msg = buildHumanMessage(text.trim(), role as any, role === 'admin' ? 'Admin' : 'You');
+    const msg = buildHumanMessage(text.trim(), role as any, role === 'admin' ? 'Admin' : 'You');
 
-  const existing = await getUser('human');
-  await upsertUser({
-    id: 'human',
-    name: role === 'admin' ? 'Admin' : 'You',
-    role: role as 'admin' | 'member',
-    warnings: existing?.warnings || 0,
-  });
-
-  const chatMsg: ChatMessage = { ...msg, status: 'ok' };
-  await addChatMessage(chatMsg);
-  await setLastHumanMessage(text.trim());
-
-  const action = await moderateMessage(msg);
-
-  if (action.type === 'delete') await updateMessageStatus(msg.id, 'deleted');
-  else if (action.type === 'quarantine') await updateMessageStatus(msg.id, 'held');
-
-  return NextResponse.json({ id: msg.id, action: action.type });
+    const chatMsg: ChatMessage = { ...msg, status: 'ok' };
+    const action = await moderateMessage(msg);
+    if (action.type === 'allow' || action.type === 'warn') {
+      const existing = await getUser('human');
+      await upsertUser({
+        id: 'human',
+        name: role === 'admin' ? 'Admin' : 'You',
+        role: role as 'admin' | 'member',
+        warnings: existing?.warnings || 0,
+      });
+      await setLastHumanMessage(text.trim());
+      await addChatMessage(chatMsg);
+    }
+    return NextResponse.json({ id: msg.id, action: action.type });
+  } catch (error) {
+    console.error('[messages] failed to process message', error);
+    return NextResponse.json({ error: 'Unable to process message' }, { status: 500 });
+  }
 }

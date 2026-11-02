@@ -1,6 +1,8 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
-import { ChatMessage } from '@/lib/store';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import type { ChatMessage } from '@/lib/store';
 
 const PERSONA_COLORS: Record<string, string> = {
   luna: '#7C3AED', pip: '#0891B2', sage: '#0E7C6B',
@@ -13,10 +15,14 @@ function formatTime(ts: Date | string) { return new Date(ts).toLocaleTimeString(
 function formatDate(ts: Date | string) { return new Date(ts).toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' }); }
 
 export default function ChatPage() {
+  const router = useRouter();
   const [messages, setMessages]     = useState<ChatMessage[]>([]);
   const [lastId,   setLastId]       = useState('');
   const [input,    setInput]        = useState('');
   const [role,     setRole]         = useState<'member' | 'admin'>('member');
+  const [adminPin, setAdminPin]     = useState('');
+  const [adminPinOpen, setAdminPinOpen] = useState(false);
+  const [adminError, setAdminError] = useState('');
   const [typing,   setTyping]       = useState(false);
   const [showMembers, setShowMembers] = useState(false);
   const [atBottom, setAtBottom]     = useState(true);
@@ -30,15 +36,60 @@ export default function ChatPage() {
     if (val === 'admin') setRole('admin');
   }, []);
 
-  // Initial full load
+  // Load the shared demo session. Role changes and navigation must not reset it.
   useEffect(() => {
-    fetch('/api/messages')
-      .then(r => r.json())
-      .then((msgs: ChatMessage[]) => {
-        setMessages(msgs);
-        if (msgs.length) setLastId(msgs[msgs.length - 1].id);
-      });
+    let active = true;
+    (async () => {
+      const response = await fetch('/api/messages');
+      if (!response.ok) throw new Error('Unable to load chat session');
+      const msgs: ChatMessage[] = await response.json();
+      if (!active) return;
+      setMessages(msgs);
+      if (msgs.length) setLastId(msgs[msgs.length - 1].id);
+    })().catch(error => console.error('[chat] initial load failed:', error));
+    return () => { active = false; };
   }, []);
+
+  const changeRole = async (nextRole: 'member' | 'admin') => {
+    if (nextRole === 'admin') {
+      setAdminPinOpen(true);
+      setAdminError('');
+      return;
+    }
+    const response = await fetch('/api/auth', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ role: 'member' }),
+    });
+    if (!response.ok) {
+      window.alert('Unable to switch to member mode.');
+      return;
+    }
+    setRole(nextRole);
+    router.refresh();
+  };
+
+  const confirmAdminRole = async () => {
+    const pin = adminPin.trim();
+    if (!pin) {
+      setAdminError('Enter the admin PIN.');
+      return;
+    }
+    const response = await fetch('/api/auth', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ role: 'admin', pin }),
+    });
+    if (!response.ok) {
+      setAdminError('That admin PIN is not valid.');
+      return;
+    }
+    setAdminPin('');
+    setAdminPinOpen(false);
+    setAdminError('');
+    setRole('admin');
+    router.refresh();
+  };
 
   // Poll for new messages every 2s (pause when tab hidden)
   useEffect(() => {
@@ -103,11 +154,38 @@ export default function ChatPage() {
     const text = input.trim();
     if (!text) return;
     setInput('');
-    await fetch('/api/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text, role }),
-    });
+
+    // Optimistic: show message immediately
+    const optimisticId = `opt-${Date.now()}`;
+    const optimistic: ChatMessage = {
+      id: optimisticId,
+      platform: 'simulated',
+      groupId: 'halloween-dev-club',
+      sender: { id: 'human', name: role === 'admin' ? 'Admin' : 'You', role: role as any, joinedAt: new Date() },
+      text,
+      links: [],
+      isForwarded: false,
+      timestamp: new Date(),
+      status: 'ok',
+    };
+    setMessages(prev => [...prev, optimistic]);
+    setLastId(optimisticId);
+
+    try {
+      const res = await fetch('/api/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, role }),
+      });
+      const data = await res.json();
+      // Replace optimistic with real message id from server
+      setMessages(prev => prev.map(m =>
+        m.id === optimisticId ? { ...m, id: data.id, status: data.action === 'delete' ? 'deleted' : data.action === 'quarantine' ? 'held' : 'ok' } : m
+      ));
+      if (data.id) setLastId(data.id);
+    } catch {
+      setMessages(prev => prev.filter(m => m.id !== optimisticId));
+    }
   };
 
   const handleKey = (e: React.KeyboardEvent) => {
@@ -138,6 +216,7 @@ export default function ChatPage() {
         </div>
         <div className="chat-header-actions">
           {typing && <span style={{ fontSize: '0.75rem', opacity: 0.65 }}>bot is typing…</span>}
+          {role === 'admin' && <Link className="btn btn-ghost" href="/admin">Open report</Link>}
           <button className="members-toggle" onClick={() => setShowMembers(v => !v)} aria-label="Toggle members">
             👥 Members
           </button>
@@ -237,10 +316,27 @@ export default function ChatPage() {
       <div className="chat-footer">
         <div className="role-switch">
           <label htmlFor="role-sel">Post as:</label>
-          <select id="role-sel" value={role} onChange={e => setRole(e.target.value as any)}>
+          <select id="role-sel" value={adminPinOpen ? 'admin' : role} onChange={e => changeRole(e.target.value as 'member' | 'admin')}>
             <option value="member">Member (moderated)</option>
             <option value="admin">Admin (never deleted)</option>
           </select>
+          {adminPinOpen && (
+            <>
+              <input
+                className="form-input"
+                style={{ width: '7rem', marginLeft: '0.5rem' }}
+                type="password"
+                value={adminPin}
+                onChange={e => setAdminPin(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && confirmAdminRole()}
+                placeholder="Admin PIN"
+                aria-label="Admin PIN"
+              />
+              <button className="btn btn-primary" onClick={confirmAdminRole}>Unlock</button>
+              <button className="btn btn-ghost" onClick={() => { setAdminPinOpen(false); setAdminPin(''); setAdminError(''); }}>Cancel</button>
+              {adminError && <span style={{ color: 'var(--blood-red)', fontSize: '0.72rem' }}>{adminError}</span>}
+            </>
+          )}
           {role === 'admin' && <span style={{ marginLeft: '0.5rem', opacity: 0.6, fontSize: '0.78rem' }}>🛡 bypass moderation</span>}
         </div>
         <div className="composer">
