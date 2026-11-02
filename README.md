@@ -5,8 +5,8 @@ communities. It combines deterministic spam protection, an optional Gemini
 classifier, a simulated group chat, an admin review portal, and a Telegram
 webhook behind one platform-agnostic moderation core.
 
-**Live demo:** [sentinelmod.netlify.app](https://sentinelmod.netlify.app)
-**Repository:** [github.com/monishwar-reddy/Bonekeeper](https://github.com/monishwar-reddy/Bonekeeper)
+**Live demo:** https://sentinelmod.netlify.app
+**Repository:** https://github.com/monishwar-reddy/Bonekeeper
 
 ## What it demonstrates
 
@@ -142,7 +142,5 @@ Set secrets in Netlify’s environment-variable settings rather than in
 
 ## Project documentation
 
-- [Architecture](docs/ARCHITECTURE.md)
-- [Adapter guide](docs/ADAPTER.md)
-- [Hackathon submission notes](SUBMISSION.md)
+- [Architecture](docs/ARCHITECTURE.md
 - [MIT License](LICENSE)
